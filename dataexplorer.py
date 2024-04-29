@@ -302,7 +302,7 @@ def classify_events(df, time_window=2,Event_type=None):
         raise TypeError("event type is wrong please choose valid event type 'cs','Knob' and 'stim' are acceptable")
     return pd.DataFrame(events)
 
-def find_optimal_time_window(df,Event_type=['Init','Success','Fail']):
+def find_optimal_time_window(df,Event_type='Knob'):
     """
     Find the optimal time window for classifying events into 'Init', 'Success', and 'Fail' categories.
     The optimal window is the one that minimizes the number of 'Init' events not followed by 'Success' or 'Fail'.
@@ -311,15 +311,17 @@ def find_optimal_time_window(df,Event_type=['Init','Success','Fail']):
     optimal_window = None
     min_unmatched_inits = float('inf')
     min_delta = float('inf')
+    if Event_type == 'Knob':
+        Event_types = ['Init','Success','Fail']
     # Test different time windows
     for window in np.arange(0.001, 2, 0.001):
         # Classify events using the current time window
-        events = classify_events(df, window)
+        events = classify_events(df, window,Event_type )
         # Count 'Init' events not followed by 'Success' or 'Fail'
-        unmatched_inits = sum((events['Type'] == Event_type[0]) & (events['Type'].shift(-1) == Event_type[0]))
+        unmatched_inits = sum((events['Type'] == Event_types[0]) & (events['Type'].shift(-1) == Event_types[0]))
         event_counts = events['Type'].value_counts()
         # delta = event_counts.get('Init', 0) - event_counts.get('Success', 0) - event_counts.get('Fail', 0)
-        delta = abs(event_counts.get(Event_type[0], 0) - event_counts.get(Event_type[1], 0) - event_counts.get(Event_type[2], 0))
+        delta = abs(event_counts.get(Event_types[0], 0) - event_counts.get(Event_types[1], 0) - event_counts.get(Event_types[2], 0))
         # Update optimal window if better
         if unmatched_inits < min_unmatched_inits:
             # if delta < min_delta:
