@@ -1,0 +1,14 @@
+# Ignore the Data directory
+Data/CS/*
+Data/Knob/*
+Data/stim/*
+
+!Data/CS/.gitkeep
+!Data/Knob/.gitkeep
+!Data/stim/.gitkeep
+
+
+# Ignore the History directory
+History/
+
+__pycache__/
