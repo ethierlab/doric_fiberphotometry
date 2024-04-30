@@ -336,20 +336,20 @@ def plot_and_save_seperated(isos_df,grabda_df,event_df,file_selector):
     fig, axs = plt.subplots(1, 3, figsize=(15, 5))
 
     # Plotting data (replace isos_df, grabda_df, event_df with your actual DataFrames)
-    axs[0].plot(isos_df.Time, isos_df.Data)
-    axs[0].set_title('Isos')
-    axs[0].set_xlabel('Time')
-    axs[0].set_ylabel('Data')
+    axs[0].plot(isos_df.Time, isos_df.Data, color = 'silver')
+    axs[0].set_title('Isosbestic')
+    axs[0].set_xlabel('Time(S)')
+    axs[0].set_ylabel('Intensity')
 
-    axs[1].plot(grabda_df.Time, grabda_df.Data)
-    axs[1].set_title('Grabda')
-    axs[1].set_xlabel('Time')
-    axs[1].set_ylabel('Data')
+    axs[1].plot(grabda_df.Time, grabda_df.Data, color = 'black')
+    axs[1].set_title('GrabDA')
+    axs[1].set_xlabel('Time(S)')
+    axs[1].set_ylabel('Intensity')
 
-    axs[2].plot(event_df.Time, event_df.Data)
+    axs[2].plot(event_df.Time, event_df.Data, color = 'tomato')
     axs[2].set_title('Event')
-    axs[2].set_xlabel('Time')
-    axs[2].set_ylabel('Data')
+    axs[2].set_xlabel('Time(S)')
+    axs[2].set_ylabel('Intensity')
 
     plt.tight_layout()
 
@@ -379,13 +379,13 @@ def plot_and_save(isos_df, grabda_df, event_df,file_selector):
     # Create the plot
     fig, ax = plt.subplots(figsize=(10, 5))
     # Plotting normalized data
-    ax.plot(isos_df['Time'], isos_normalized, label='Isos')
-    ax.plot(grabda_df['Time'], grabda_normalized, label='Grabda')
-    ax.plot(event_df['Time'], event_normalized, label='Event')
+    ax.plot(isos_df['Time'], isos_normalized, label='Isosbestic', color = 'silver', linewidth=0.9)
+    ax.plot(grabda_df['Time'], grabda_normalized, label='GrabDA', color = 'black', linewidth=0.9)
+    ax.plot(event_df['Time'], event_normalized, label='Event', color = 'coral', linewidth=0.3, alpha = 0.5)
     # Adding labels and title
     ax.set_title('Normalized Signals (-1 to 1)')
-    ax.set_xlabel('Time')
-    ax.set_ylabel('Normalized Data')
+    ax.set_xlabel('Time(S)')
+    ax.set_ylabel('Intensity')
     ax.legend()
     plt.tight_layout()
     filename = file_selector.file_path.split('.')[0]+'/Figs/'+'/raw_data_merged.png'
