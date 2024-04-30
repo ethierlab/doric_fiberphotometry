@@ -57,7 +57,7 @@ def get_zdFF(reference,signal,smooth_win=10,remove=0,lambd=5e11,porder=10,iterma
   reference = (reference - np.median(reference)) / np.std(reference)
   signal = (signal - np.median(signal)) / np.std(signal)
   
- # Align reference signal to calcium signal using non-negative robust linear regression
+ # Align reference signal to DA signal using non-negative robust linear regression
   lin = Lasso(alpha=0.0001,precompute=True,max_iter=1000,
               positive=True, random_state=9999, selection='random')
   n = len(reference)
@@ -805,6 +805,7 @@ class PhotometryAnalysis:
     def plot_and_save(self, isos_df, grabda_df, zdFF):
         with self.plot_output:
             clear_output(wait=True)
+            # here we are doing the normalization
             isos_normalized = self.min_max_normalize(isos_df['Data'])
             grabda_normalized = self.min_max_normalize(grabda_df['Data'])
             event_normalized = self.min_max_normalize(zdFF)
