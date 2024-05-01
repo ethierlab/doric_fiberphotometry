@@ -1,7 +1,6 @@
 # Ignore the Data directory
-Data/CS/*
-Data/Knob/*
-Data/stim/*
+
+Data/
 
 !Data/CS/.gitkeep
 !Data/Knob/.gitkeep
