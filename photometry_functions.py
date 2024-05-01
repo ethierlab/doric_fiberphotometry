@@ -745,6 +745,37 @@ def plot_auc_bars(psth_df,y_min,y_max):
     plt.ylim(y_min, y_max)
     plt.show()
 
+def plot_auc_bars_with_duration(psth_df,y_min,y_max,bd=(-1,0),ad=(0,3)):
+    """
+    Plot the AUC values before and after time 0 as separate bars.
+    """
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+
+    # Separate the dataset into before duration and after duration time 
+
+    start, end = bd
+    before_zero = psth_df[psth_df['Time'].between(start, end)]
+    start, end = ad
+    after_zero = psth_df[psth_df['Time'].between(start, end)]
+
+    # Calculate AUC using the trapezoidal rule
+    auc_before_zero = np.trapz(before_zero['Average Signal'], before_zero['Time'])
+    auc_after_zero = np.trapz(after_zero['Average Signal'], after_zero['Time'])
+
+    # Plotting AUC bars
+    auc_values = [auc_before_zero, auc_after_zero]
+    labels = ['AUC Before event', 'AUC After event']
+    colors = ['gray', 'green']
+
+    plt.figure(figsize=(12, 6))
+    plt.bar(labels, auc_values, color=colors)
+    plt.title('Area Under Curve')
+    plt.ylabel('Averaged Area')
+    plt.tight_layout()
+    plt.ylim(y_min, y_max)
+    plt.show()
 
 
 import ipywidgets as widgets
