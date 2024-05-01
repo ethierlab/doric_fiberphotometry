@@ -57,7 +57,7 @@ def get_zdFF(reference,signal,smooth_win=10,remove=0,lambd=5e11,porder=10,iterma
   reference = (reference - np.median(reference)) / np.std(reference)
   signal = (signal - np.median(signal)) / np.std(signal)
   
- # Align reference signal to calcium signal using non-negative robust linear regression
+ # Align reference signal to DA signal using non-negative robust linear regression
   lin = Lasso(alpha=0.0001,precompute=True,max_iter=1000,
               positive=True, random_state=9999, selection='random')
   n = len(reference)
@@ -394,8 +394,8 @@ def plot_cut_signals(cut_signals_df,y_min,y_max):
         # Plot the signal
         plt.plot(event_signal['Time'], event_signal['Data'], label=f'Event {event_index}')
 
-    plt.xlabel('Time (relative to event)')
-    plt.ylabel('Signal')
+    plt.xlabel('Time(S) relative to event')
+    plt.ylabel('z-dF/F')
     plt.title('Cut Signals Around Each Event')
     plt.legend()
     plt.ylim(y_min, y_max)
@@ -427,17 +427,21 @@ def plot_cut_signals_seperated(cut_signals_df,y_min,y_max):
         event_signal = cut_signals_df.xs(event_index, level='Event')
 
         # Plot the signal
-        axs[i].plot(event_signal['Time'], event_signal['Data'], label=f'Event {event_index}')
-        axs[i].set_xlabel('Time (relative to event)')
-        axs[i].set_ylabel('Signal')
+        axs[i].plot(event_signal['Time'], event_signal['Data'], color = 'limegreen', label=f'Event {event_index}')
+        axs[i].axvline(x=0, color='red', linestyle='--')  # Event occurrence line
+        axs[i].set_xlabel('Time(S) relative to event')
+        axs[i].set_ylabel('z-dF/F')
         axs[i].set_ylim(y_min, y_max)
         axs[i].legend()
+        
 
     # Turn off any unused subplots
     for i in range(num_events, len(axs)):
         axs[i].axis('off')    
     plt.suptitle('Cut Signals Around Each Event')
     plt.tight_layout(rect=[0, 0.03, 1, 0.95]) # Adjust the layout to make room for the suptitle
+      # Show the time of the peak with a vertical line
+    
     plt.show()
 
 def heatmap_plot(df):
@@ -457,8 +461,8 @@ def heatmap_plot(df):
 
     sns.heatmap(pivoted_df, cmap=cmap.reversed())
     plt.title('Heatmap of Signal Data by Time and Event')
-    plt.xlabel('Time')
-    plt.ylabel('Event')
+    plt.xlabel('Time(S)')
+    plt.ylabel('Trial number')
 
     # Customize x-axis ticks
     time_labels = pivoted_df.columns.values  # Get the time values
@@ -551,7 +555,7 @@ def plot_psth_with_std_cloud(psth_df,y_min,y_max,color,signal):
     new_ticks = np.sort(np.append(current_ticks, peak_time))
     plt.xticks(new_ticks, labels=[f'{tick:.2f}' if tick != peak_time else f'{tick:.2f}' for tick in new_ticks])
     plt.xlabel('Time')
-    plt.ylabel('Signal')
+    plt.ylabel('z-dF/F')
     plt.title('Peri-Stimulus Time Histogram (PSTH) with Standard Deviation')
     plt.axvline(x=0, color='red', linestyle='--')  # Event occurrence line
     plt.legend()
@@ -612,7 +616,7 @@ def plot_psth_with_min_max_range(psth_df, y_min, y_max,color,signal):
     plt.xticks(new_ticks, labels=[f'{tick:.2f}' if tick != peak_time else f'{tick:.2f}' for tick in new_ticks])
 
     plt.xlabel('Time')
-    plt.ylabel('Signal')
+    plt.ylabel('z-dF/F')
     plt.title('Peri-Stimulus Time Histogram (PSTH) with Min-Max Range')
     plt.axvline(x=0, color='red', linestyle='--')  # Event occurrence line
 
@@ -679,8 +683,8 @@ def plot_psth(psth_df, y_min, y_max,color,signal,pos):
     new_ticks = np.sort(np.append(current_ticks, peak_time))
     pos.set_xticks(new_ticks, labels=[f'{tick:.2f}' if tick != peak_time else f'{tick:.2f}' for tick in new_ticks])
 
-    pos.set_xlabel('Time')
-    pos.set_ylabel('Signal')
+    pos.set_xlabel('Time(S)')
+    pos.set_ylabel('z-dF/F')
     pos.axvline(x=0, color='red', linestyle='--')  # Event occurrence line
 
     pos.legend()
@@ -706,8 +710,8 @@ def plot_psth_auc(psth_df,y_min,y_max,color,signal):
     plt.fill_between(time_points[time_points < 0], mean_values[time_points < 0], color='purple', alpha=0.3)
     plt.fill_between(time_points[time_points >= 0], mean_values[time_points >= 0], color='purple', alpha=0.3)
     plt.axvline(x=0, color='red', linestyle='--')  # Event occurrence line
-    plt.xlabel('Time')
-    plt.ylabel('Signal')
+    plt.xlabel('Time(S)')
+    plt.ylabel('z-dF/F')
     plt.title('PSTH with Standard Deviation and Highlighted Areas')
     plt.legend()
     plt.grid(True)
@@ -730,13 +734,13 @@ def plot_auc_bars(psth_df,y_min,y_max):
 
     # Plotting AUC bars
     auc_values = [auc_before_zero, auc_after_zero]
-    labels = ['AUC Before 0', 'AUC After 0']
-    colors = ['blue', 'green']
+    labels = ['AUC Before event', 'AUC After event']
+    colors = ['gray', 'green']
 
     plt.figure(figsize=(12, 6))
     plt.bar(labels, auc_values, color=colors)
-    plt.title('AUC Values')
-    plt.ylabel('Area Under Curve')
+    plt.title('Area Under Curve')
+    plt.ylabel('Averaged Area')
     plt.tight_layout()
     plt.ylim(y_min, y_max)
     plt.show()
@@ -801,16 +805,17 @@ class PhotometryAnalysis:
     def plot_and_save(self, isos_df, grabda_df, zdFF):
         with self.plot_output:
             clear_output(wait=True)
+            # here we are doing the normalization
             isos_normalized = self.min_max_normalize(isos_df['Data'])
             grabda_normalized = self.min_max_normalize(grabda_df['Data'])
             event_normalized = self.min_max_normalize(zdFF)
             fig, ax = plt.subplots(figsize=(20, 4))
-            ax.plot(isos_df['Time'], isos_normalized, 'blue', label='Isos')
-            ax.plot(grabda_df['Time'], grabda_normalized, 'red', label='Grabda')
-            ax.plot(isos_df['Time'], event_normalized, 'purple', label='z-dF/F')
+            ax.plot(isos_df['Time'], isos_normalized, 'silver', alpha = 0.3,  label='Isos')
+            ax.plot(grabda_df['Time'], grabda_normalized, 'black', alpha = 0.3, label='GrabDA')
+            ax.plot(isos_df['Time'], event_normalized, 'limegreen', label='corrected DA signal')
             ax.set_title('Normalized Signals (-1 to 1)')
             ax.set_xlabel('Time')
-            ax.set_ylabel('Normalized Data')
+            ax.set_ylabel('z-dF/F')
             ax.legend()
             plt.tight_layout()
             plt.show()
