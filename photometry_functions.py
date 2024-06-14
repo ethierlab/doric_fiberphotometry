@@ -1042,6 +1042,14 @@ def cut_and_center_signals_modified(signal_df, event_df, time_window, event_type
     """
     Cut the signal around each event time of a specific type, center the time around the event, 
     and store them separately. For 'Fail' or 'Success' types, use the 'Init' time before them.
+
+    i need 4 types 
+
+    1-success after success (sas)
+    2-success after fail (saf)
+    3-fail after success (fas)
+    4-fail after fail (faf)
+
     """
     cut_signals = []
 
@@ -1063,7 +1071,6 @@ def cut_and_center_signals_modified(signal_df, event_df, time_window, event_type
                         event_df.at[i, 'Ref_Time'] = preceding_init['Time']
 
         event_df = event_df[event_df['Type'] == event_type]
-
     for _, event in event_df.iterrows():
         nearest_event_time = find_nearest(signal_df['Time'], event['Ref_Time'])
         window_start = nearest_event_time + time_window[0]
