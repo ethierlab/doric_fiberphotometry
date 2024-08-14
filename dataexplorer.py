@@ -34,7 +34,6 @@ class H5DataExplorer:
                 for data_item in d['Data']:
                     
                     option = (f"{d['Name']} - {data_item['Name']}", (d['Name'], data_item['Name']))
-                    
                     dataset_options.append(option)
                     # Check for automatic selection
                     
@@ -134,18 +133,20 @@ class H5DataExplorer:
 
     def on_dataset_info(self, change):
         selected_data_tuple = change['owner'].value
+        
         if selected_data_tuple:
             dataset_name, data_name = selected_data_tuple  # Unpacking the tuple directly
             # Find the selected dataset
             selected_dataset = next((d for d in self.datasets if d['Name'] == dataset_name), None)
+            # print(selected_dataset)
             if selected_dataset is not None:
                 # Find the selected data item within the dataset and get its DataInfo
                 selected_data = next((data for data in selected_dataset['Data'] if data['Name'] == data_name), None)
-                if selected_data:
+                if selected_data['DataInfo']:
                     data_info = selected_data['DataInfo']
                     info_text = '\n'.join([f"{key}: {value}" for key, value in data_info.items()])
                 else:
-                    info_text = "Data not found."
+                    info_text = "DataInfo not found."
                 if change['owner'] is self.isos_selector:
                     self.isos_info.value = info_text
                 elif change['owner'] is self.grabda_selector:
@@ -162,28 +163,33 @@ class H5DataExplorer:
                     self.event_info.value = "Dataset not found."
 
     def on_load_button_clicked(self, b):
-        if self.isos_selector.value:
+        Data_ready=0
+        if self.isos_selector.value != "None":
             dataset_name, data_name = self.isos_selector.value
             selected_dataset = next(d for d in self.datasets if d['Name'] == dataset_name)
             selected_data = next(data for data in selected_dataset['Data'] if data['Name'] == data_name)
             # Assuming 'Time' data is stored in a specific way, adjust as needed
             time_data = next(data['Data'] for data in selected_dataset['Data'] if data['Name'] == 'Time')
             self.isos = pd.DataFrame({'Time': time_data, 'Data': selected_data['Data']})
-        if self.grabda_selector.value:
-            dataset_name, data_name = self.grabda_selector.value
+            Data_ready = Data_ready + 1
+        if self.grabda_selector.value != "None":
+            dataset_name, data_name  = self.grabda_selector.value
             selected_dataset = next(d for d in self.datasets if d['Name'] == dataset_name)
             selected_data = next(data for data in selected_dataset['Data'] if data['Name'] == data_name)
             # Assuming 'Time' data is stored in a specific way, adjust as needed
             time_data = next(data['Data'] for data in selected_dataset['Data'] if data['Name'] == 'Time')
             self.grabda = pd.DataFrame({'Time': time_data, 'Data': selected_data['Data']})
-        if self.event_selector.value:
+            Data_ready = Data_ready + 1
+        if self.event_selector.value != "None":
             dataset_name, data_name = self.event_selector.value
             selected_dataset = next(d for d in self.datasets if d['Name'] == dataset_name)
             selected_data = next(data for data in selected_dataset['Data'] if data['Name'] == data_name)
             # Assuming 'Time' data is stored in a specific way, adjust as needed
             time_data = next(data['Data'] for data in selected_dataset['Data'] if data['Name'] == 'Time')
             self.event = pd.DataFrame({'Time': time_data, 'Data': selected_data['Data']})
-        print("Datasets loaded.")
+            Data_ready = Data_ready + 1
+        if Data_ready == 3 :
+            print("Datasets loaded.")
         
     def get_isos_df(self):
         return self.isos
@@ -211,7 +217,7 @@ class H5DataExplorer:
         file_path = self.file_selector.get_selected_file()
         if file_path:
             self.file = h5py.File(file_path, 'r')
-            # print(self.file['DataAcquisition']['NC500']['Signals']['Series0001']['DigitalIO']['DIO01'])
+            # print(self.file['DataAcquisition']['NC500']['Signals']['Series0001']['Headstage1LockIn']['Headstage1LockIn1'])
             self.datasets = self.h5getDatasetR(self.file['DataAcquisition'], file_path)
             self._populate_datasets2()
         else:
