@@ -34,15 +34,17 @@ def load_dependencies():
     from importlib import reload
 
 class FileSelector:
-    def __init__(self, start_dir):
+    def __init__(self, start_dir, reload_data=False):
         self.file_path = None
         self.file_name = None
+        self.reload_data = reload_data
         self.start_dir = start_dir
         self._setup_widget()
         self.isos = pd.DataFrame()
         self.grabda = pd.DataFrame()
         self.event = pd.DataFrame()
         self.explorer = de.H5DataExplorer(self)
+        self.dataframes = pd.DataFrame()
     
 
     def _setup_widget(self):
@@ -51,7 +53,31 @@ class FileSelector:
         self.file_selector = widgets.Dropdown(options=[('Select a file')] + file_list, description='Select File:', disabled=False)
         self.file_selector.observe(self._on_change, names='value')
         display(self.file_selector)
+    def load_all_csv_files(self):
+        """
+        Loads all CSV files from the specified directory and returns them as a dictionary of DataFrames.
 
+        The directory is derived from the selected file's path.
+        """
+        directory_path = self.file_path.split('.')[0] + '/Data/'
+        dataframes = {}
+        
+        # Iterate through each file in the directory
+        for file_name in os.listdir(directory_path):
+            # Check if the file is a CSV file
+            if file_name.endswith('.csv'):
+                file_path = os.path.join(directory_path, file_name)
+                df = pd.read_csv(file_path)
+                
+                # Removing the '.csv' extension from the file name for the variable name
+                var_name = file_name[:-20]  # Adjust as per your naming convention
+                
+                # Store the DataFrame in the dictionary
+                dataframes[var_name] = df
+                
+                print(f"Loaded {file_name} into variable: {var_name}")
+        
+        return dataframes
     def _on_change(self, change):
         from IPython.display import clear_output
         from importlib import reload
@@ -63,11 +89,19 @@ class FileSelector:
             self.file_path = os.path.join(self.start_dir, change['new'])
             self.file_name = change['new']
             print("Selected file:", self.file_path)
-            print("loading dataset .....")
+            
             # explorer = de.H5DataExplorer(self,self.isos_df,self.grabda_df,self.event_df)
-            self.explorer.open_file()
+            if self.reload_data:
+                path = self.file_path.split('.')[0]+'/Data/'
+                print(path)
+                print("Reloading dataset from:", self.file_path)
+                self.dataframes = self.load_all_csv_files()
+            else:
+                print("loading dataset .....")
+                self.explorer.open_file()
             
-            
+    def get_dataframes(self):
+        return self.dataframes
     def get_selected_file(self):
         return self.file_path
     def get_selected_file_name(self):

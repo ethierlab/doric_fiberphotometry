@@ -17,7 +17,7 @@ Reference:
 
 '''
 
-def get_zdFF(reference,signal,smooth_win=10,remove=0,lambd=5e11,porder=10,itermax=50): 
+def get_zdFF(reference,signal,smooth_win=10, fs=100,remove=0,lambd=5e11,porder=10,itermax=50): 
   '''
   Calculates z-score dF/F signal based on fiber photometry calcium-idependent 
   and calcium-dependent signals
@@ -42,10 +42,13 @@ def get_zdFF(reference,signal,smooth_win=10,remove=0,lambd=5e11,porder=10,iterma
   from sklearn.linear_model import Lasso
 
  # Smooth signal
-  reference = smooth_signal(reference, smooth_win)
-  signal = smooth_signal(signal, smooth_win)
-  
- # Remove slope using airPLS algorithm
+#   reference = smooth_signal(reference, smooth_win)
+#   signal = smooth_signal(signal, smooth_win)
+  # Apply the sharp low-pass filter 
+  reference = sharp_low_pass_filter(reference, cutoff=smooth_win, order=10 , fs=fs)
+  signal = sharp_low_pass_filter(signal, cutoff=smooth_win, order=10 , fs=fs)
+ # Remove slope using airPLS algorithm 
+ # Bleaching correction
   r_base=airPLS(reference,lambda_=lambd,porder=porder,itermax=itermax)
   s_base=airPLS(signal,lambda_=lambd,porder=porder,itermax=itermax) 
 
@@ -53,22 +56,54 @@ def get_zdFF(reference,signal,smooth_win=10,remove=0,lambd=5e11,porder=10,iterma
   reference = (reference[remove:] - r_base[remove:])
   signal = (signal[remove:] - s_base[remove:])   
 
- # Standardize signals    
-  reference = (reference - np.median(reference)) / np.std(reference)
-  signal = (signal - np.median(signal)) / np.std(signal)
   
  # Align reference signal to DA signal using non-negative robust linear regression
   lin = Lasso(alpha=0.0001,precompute=True,max_iter=1000,
               positive=True, random_state=9999, selection='random')
   n = len(reference)
+#   lin.fit(reference.values.reshape(n, 1), signal.values.reshape(n, 1))
+#   reference = lin.predict(reference.values.reshape(n, 1)).reshape(n,)
+
   lin.fit(reference.reshape(n,1), signal.reshape(n,1))
   reference = lin.predict(reference.reshape(n,1)).reshape(n,)
+  signal = (signal - reference)
+#   signal = smooth_signal(signal, smooth_win)
 
+# Standardize signals    
+  reference = (reference - np.median(reference)) / np.std(reference)
+  signal = (signal - np.median(signal)) / np.std(signal)
+ 
+ 
  # z dFF    
-  zdFF = (signal - reference)
+#   zdFF = (signal - reference)
+  zdFF = signal
  
   return zdFF
 
+def sharp_low_pass_filter(data, cutoff=10, fs=100, order=4):
+    """
+    Applies a sharp low-pass Butterworth filter to the input data.
+    
+    Parameters:
+    - data: The input signal (1D array-like).
+    - cutoff: The cutoff frequency of the filter in Hz (default is 10 Hz).
+    - fs: The sampling frequency of the input signal in Hz (default is 1000 Hz).
+    - order: The order of the Butterworth filter (set to 4 for sharpness).
+    
+    Returns:
+    - filtered_data: The filtered signal (same length as input data).
+    """
+    import scipy.signal as signal
+    # Normalize the cutoff frequency with the Nyquist frequency
+    nyquist = 0.5 * fs
+    normal_cutoff = cutoff / nyquist
+    
+    # Design a Butterworth low-pass filter with the specified sharpness 
+    # b, a = signal.butter(order, normal_cutoff, btype='low', analog=False)
+    b, a = signal.cheby2(order , 60, normal_cutoff, btype='low', analog=False)
+    # Apply the filter to the data using zero-phase filtering   
+    filtered_data = signal.filtfilt(b, a, data)
+    return filtered_data
 
 def smooth_signal(x,window_len=10,window='blackman'):
 
@@ -564,6 +599,68 @@ def plot_psth_with_std_cloud(psth_df,y_min,y_max,color,signal):
     plt.tight_layout()
     plt.show()
 
+def plot_psth_with_CI_cloud(psth_df, y_min, y_max,color,signal):
+    """
+    Plot the Peri-Stimulus Time Histogram (PSTH) with minimum and maximum values as a shaded range for each time point,
+    and highlight the peak value. Additionally, show the time of the peak as a specific x-axis tick.
+    """
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    # Filter the DataFrame for Time between 0 and 2 inclusive
+    filtered_df = psth_df[psth_df['Time'].between(0, 2)]
+
+    # Prepare data from the filtered DataFrame
+    time_points = filtered_df['Time']
+    mean_values = filtered_df['Average Signal']
+
+    # Find the peak value and its corresponding time within the filtered range
+    peak_value = mean_values.max()
+    peak_time = time_points[mean_values.idxmax()]
+
+    # Prepare data for plotting
+    time_points = psth_df['Time']
+    mean_values = psth_df['Average Signal']
+
+    # Prepare data for plotting
+    time_points = psth_df['Time']
+    mean_values = psth_df['Average Signal']
+    min_signal = psth_df['Lower 95% CI']
+    max_signal = psth_df['Upper 95% CI']
+    
+
+    # Plotting
+    # plt.figure(figsize=(12, 6))
+
+    # Plot mean values
+    plt.plot(time_points, mean_values, label=f'Average {signal}', color=color)
+
+    # Add minimum and maximum values as a shaded area
+    plt.fill_between(time_points, min_signal, max_signal, color=color, alpha=0.3)
+
+    # Highlight the peak value
+    plt.scatter(peak_time, peak_value, color=color, marker='o', label=f'Peak {peak_value:.2f}')  # Mark the peak
+
+    # Show the time of the peak with a vertical line
+    plt.axvline(x=peak_time, color=color, linestyle='--')
+
+    # Customize x-axis to include peak time as a tick
+    current_ticks = np.array(plt.xticks()[0])
+    new_ticks = np.sort(np.append(current_ticks, peak_time))
+    plt.xticks(new_ticks, labels=[f'{tick:.2f}' if tick != peak_time else f'{tick:.2f}' for tick in new_ticks])
+
+    plt.xlabel('Time')
+    plt.ylabel('z-dF/F')
+    plt.title('Peri-Stimulus Time Histogram (PSTH) with 95% CI')
+    plt.axvline(x=0, color='red', linestyle='--')  # Event occurrence line
+
+    plt.legend()
+    plt.grid(True)
+    plt.ylim(y_min, y_max)
+
+    plt.tight_layout()
+    
+    # plt.show()
 
 def plot_psth_with_min_max_range(psth_df, y_min, y_max,color,signal):
     """
@@ -825,7 +922,11 @@ class PhotometryAnalysis:
         cutoff_freq = self.cutoff_freq_widget.value
         window_len = calculate_window_len(cutoff_freq, sample_rate)
         remove = int((self.remove_widget.value) * (sample_rate / 1000))
-        self.zdFF = get_zdFF(ref_df.Data, sig_df.Data, remove=remove, smooth_win=window_len,
+        
+        time_diff = np.diff(sig_df.Time)
+        fs = 1 / np.mean(time_diff)  # Calculate sampling rate from the time intervals
+
+        self.zdFF = get_zdFF(ref_df.Data, sig_df.Data, remove=remove, smooth_win=window_len, fs=fs,
                                 lambd=self.lambd_widget.value, porder=self.porder_widget.value,
                                 itermax=self.itermax_widget.value)
         self.plot_and_save(ref_df[remove:], sig_df[remove:], self.zdFF)
