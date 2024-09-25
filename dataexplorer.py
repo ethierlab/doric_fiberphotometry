@@ -238,12 +238,13 @@ def find_rising_edges(event_df,time_diff_threshold=0):
 
     return new_rising_edge_df
 
-def classify_events(df, time_window=2,Event_type=None):
+def classify_events2(df, time_window=2,Event_type=None):
     events = {'Time': [], 'Type': [], 'Sample_Number': []}
     group_start_sample = df.iloc[0]['Sample_Number']
     group_start_time = df.iloc[0]['Time']
     pulse_count = 1
     last_time = 0
+    expecting_init = True
     if Event_type.lower() == 'stim':
         print("stim")
         for index, row in df.iterrows():
@@ -264,10 +265,113 @@ def classify_events(df, time_window=2,Event_type=None):
                 group_start_time = current_time
                 group_start_sample = current_sample
     elif Event_type.lower() == 'knob' or Event_type.lower() == 'cs':
-        if Event_type.lower() == 'knob':
-            Event_types = ['Init','Success','Fail']
-        if Event_type.lower() == 'cs':
-            Event_types = ['Que','Reward','Omit']
+            if Event_type.lower() == 'knob':
+                Event_types = ['Init','Success','Fail']
+            if Event_type.lower() == 'cs':
+                Event_types = ['Que','Reward','Omit']
+            for index, row in df.iterrows():
+                current_time = row['Time']
+                current_sample = row['Sample_Number']
+                if index == 0:
+                    # assume first pulse as init
+                    # print("hi")
+                    group_start_time = current_time
+                    group_start_sample = current_sample
+                       
+                    events['Time'].append(group_start_time)
+                    events['Type'].append(Event_types[0])
+                    events['Sample_Number'].append(group_start_sample)
+                    pulse_count = 0
+                    expecting_init = False
+                    continue
+                
+                if expecting_init:
+                    # print("expecting Init")
+                    group_start_time = current_time
+                    group_start_sample = current_sample
+                    events['Time'].append(group_start_time)
+                    events['Type'].append(Event_types[0])
+                    events['Sample_Number'].append(group_start_sample)
+                    pulse_count = 0
+                    expecting_init = False
+                else: 
+                    # print("expecting success of fail")
+                    if current_time - group_start_time <= time_window:
+                        # check if we passed the trial time 
+                        pulse_count += 1
+                        if pulse_count == 3:
+                            # print("this should be fail")
+                            events['Time'].append(group_start_time)
+                            events['Type'].append(Event_types[2])
+                            events['Sample_Number'].append(group_start_sample)
+                            expecting_init = True
+                    else:
+                        if pulse_count == 2:
+                            events['Time'].append(group_start_time)
+                            events['Type'].append(Event_types[1])
+                            events['Sample_Number'].append(group_start_sample)
+                            expecting_init = False
+                            pulse_count = 0
+                        
+                            group_start_time = current_time
+                            group_start_sample = current_sample 
+                            events['Time'].append(group_start_time)
+                            events['Type'].append(Event_types[0])
+                            events['Sample_Number'].append(group_start_sample)
+            if pulse_count == 2:
+                events['Time'].append(group_start_time)
+                events['Type'].append(Event_types[1])
+                events['Sample_Number'].append(group_start_sample)
+
+
+                
+                
+                
+            #     if current_time - group_start_time <= time_window:
+            #         pulse_count += 1
+            #     else:
+            #         if pulse_count == 1:
+            #             events['Time'].append(group_start_time)
+            #             events['Type'].append(Event_types[0])
+            #             events['Sample_Number'].append(group_start_sample)
+            #         elif pulse_count == 2:
+            #             events['Time'].append(group_start_time)
+            #             events['Type'].append(Event_types[1])
+            #             events['Sample_Number'].append(group_start_sample)
+            #         elif pulse_count == 3:
+            #             events['Time'].append(group_start_time)
+            #             events['Type'].append(Event_types[2])
+            #             events['Sample_Number'].append(group_start_sample)
+            #         group_start_time = current_time
+            #         group_start_sample = current_sample
+            #         pulse_count = 1
+            # # Classify the last group
+            # if pulse_count == 1:
+            #     events['Time'].append(group_start_time)
+            #     events['Type'].append(Event_types[0])
+            #     events['Sample_Number'].append(group_start_sample)
+            # elif pulse_count == 2:
+            #     events['Time'].append(group_start_time)
+            #     events['Type'].append(Event_types[1])
+            #     events['Sample_Number'].append(group_start_sample)
+            # elif pulse_count == 3:
+            #     events['Time'].append(group_start_time)
+            #     events['Type'].append(Event_types[2])
+                # events['Sample_Number'].append(group_start_sample)
+    else:
+        raise TypeError("event type is wrong please choose valid event type 'cs','Knob' and 'stim' are acceptable")
+    return pd.DataFrame(events)
+
+
+def classify_events(df, time_window=2,Event_type=None):
+    events = {'Time': [], 'Type': [], 'Sample_Number': []}
+    group_start_sample = df.iloc[0]['Sample_Number']
+    group_start_time = df.iloc[0]['Time']
+    pulse_count = 1
+    last_time = 0
+    
+    if Event_type.lower() == 'stim':
+        print("stim")
         for index, row in df.iterrows():
             if index == 0:
                 continue
@@ -275,38 +379,63 @@ def classify_events(df, time_window=2,Event_type=None):
             current_sample = row['Sample_Number']
             if current_time - group_start_time <= time_window:
                 pulse_count += 1
+                if last_time > 0:
+                    freq = 1 / (current_time - last_time)
+                last_time = current_time
             else:
-                if pulse_count == 1:
-                    events['Time'].append(group_start_time)
-                    events['Type'].append(Event_types[0])
-                    events['Sample_Number'].append(group_start_sample)
-                elif pulse_count == 2:
-                    events['Time'].append(group_start_time)
-                    events['Type'].append(Event_types[1])
-                    events['Sample_Number'].append(group_start_sample)
-                elif pulse_count == 3:
-                    events['Time'].append(group_start_time)
-                    events['Type'].append(Event_types[2])
-                    events['Sample_Number'].append(group_start_sample)
+                events['Time'].append(group_start_time)
+                events['Type'].append('Stim '+str(round(freq, 2))+'Hz')
+                events['Sample_Number'].append(group_start_sample)
+                last_time = 0
                 group_start_time = current_time
                 group_start_sample = current_sample
-                pulse_count = 1
-        # Classify the last group
-        if pulse_count == 1:
-            events['Time'].append(group_start_time)
-            events['Type'].append(Event_types[0])
-            events['Sample_Number'].append(group_start_sample)
-        elif pulse_count == 2:
-            events['Time'].append(group_start_time)
-            events['Type'].append(Event_types[1])
-            events['Sample_Number'].append(group_start_sample)
-        elif pulse_count == 3:
-            events['Time'].append(group_start_time)
-            events['Type'].append(Event_types[2])
-            events['Sample_Number'].append(group_start_sample)
+    elif Event_type.lower() == 'knob' or Event_type.lower() == 'cs':
+            if Event_type.lower() == 'knob':
+                Event_types = ['Init','Success','Fail']
+            if Event_type.lower() == 'cs':
+                Event_types = ['Que','Reward','Omit']
+            for index, row in df.iterrows():
+                if index == 0:
+                    current_time = row['Time']
+                    current_sample = row['Sample_Number']   
+                    continue
+                current_time = row['Time']
+                current_sample = row['Sample_Number']
+                if current_time - group_start_time <= time_window:
+                    pulse_count += 1
+                else:
+                    if pulse_count == 1:
+                        events['Time'].append(group_start_time)
+                        events['Type'].append(Event_types[0])
+                        events['Sample_Number'].append(group_start_sample)
+                    elif pulse_count == 2:
+                        events['Time'].append(group_start_time)
+                        events['Type'].append(Event_types[1])
+                        events['Sample_Number'].append(group_start_sample)
+                    elif pulse_count == 3:
+                        events['Time'].append(group_start_time)
+                        events['Type'].append(Event_types[2])
+                        events['Sample_Number'].append(group_start_sample)
+                    group_start_time = current_time
+                    group_start_sample = current_sample
+                    pulse_count = 1
+            # Classify the last group
+            if pulse_count == 1:
+                events['Time'].append(group_start_time)
+                events['Type'].append(Event_types[0])
+                events['Sample_Number'].append(group_start_sample)
+            elif pulse_count == 2:
+                events['Time'].append(group_start_time)
+                events['Type'].append(Event_types[1])
+                events['Sample_Number'].append(group_start_sample)
+            elif pulse_count == 3:
+                events['Time'].append(group_start_time)
+                events['Type'].append(Event_types[2])
+                events['Sample_Number'].append(group_start_sample)
     else:
         raise TypeError("event type is wrong please choose valid event type 'cs','Knob' and 'stim' are acceptable")
     return pd.DataFrame(events)
+
 
 def find_optimal_time_window(df,Event_type='Knob'):
     """
@@ -320,7 +449,7 @@ def find_optimal_time_window(df,Event_type='Knob'):
     if Event_type == 'Knob':
         Event_types = ['Init','Success','Fail']
     # Test different time windows
-    for window in np.arange(0.001, 2, 0.001):
+    for window in np.arange(0.0001, 2, 0.0001):
         # Classify events using the current time window
         events = classify_events(df, window,Event_type )
         # Count 'Init' events not followed by 'Success' or 'Fail'
