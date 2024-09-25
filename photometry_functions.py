@@ -17,7 +17,7 @@ Reference:
 
 '''
 
-def get_zdFF(reference,signal,smooth_win=10, fs=100,remove=0,lambd=5e11,porder=10,itermax=50 , norm=True): 
+def get_dFF(reference,signal,smooth_win=10, fs=100,remove=0,lambd=5e11,porder=10,itermax=50 , norm=True): 
   '''
   Calculates z-score dF/F signal based on fiber photometry calcium-idependent 
   and calcium-dependent signals
@@ -33,8 +33,9 @@ def get_zdFF(reference,signal,smooth_win=10, fs=100,remove=0,lambd=5e11,porder=1
               the smoother the resulting background, z
       porder: adaptive iteratively reweighted penalized least squares for baseline fitting
       itermax: maximum iteration times
+      norm: if it's true, it calculate zdFF, if it's false, it calculate dFF
   Output
-      zdFF - z-score dF/F, 1D numpy array
+      dFF - z-score dF/F, 1D numpy array
   '''
 #   !pip install scikit-learn
 
@@ -74,11 +75,11 @@ def get_zdFF(reference,signal,smooth_win=10, fs=100,remove=0,lambd=5e11,porder=1
     signal = (signal - np.median(signal)) / np.std(signal)
  
  
- # z dFF    
-  zdFF = (signal - reference)
-#  zdFF = signal
+ # dFF    
+  dFF = (signal - reference)
+#  dFF = signal
  
-  return zdFF
+  return dFF
 
 def sharp_low_pass_filter(data, cutoff=10, fs=100, order=4):
     """
@@ -894,8 +895,8 @@ class PhotometryAnalysis:
         self.grabda_df = grabda_df
         self.event_df=classified_events_df
         self.save_callback = save_callback  # Callback function to handle the saved DataFrame
-        self.zdFF = np.array([])
-        self.zdFF_Z = np.array([])
+        self.dFF = np.array([])
+        self.dFF_Z = np.array([])
         self.signal_df = pd.DataFrame()
         self.setup_widgets()
         self.display_widgets()
@@ -911,7 +912,7 @@ class PhotometryAnalysis:
     def setup_widgets(self):
         self.cutoff_freq_widget = widgets.IntText(value=10, description='Cutoff Freq:')
         self.remove_widget = widgets.IntText(value=2000, description='remove(ms):')
-        self.lambd_widget = widgets.FloatLogSlider(value=5e11, base=10, min=5, max=16, step=0.1, description='lambd:')
+        self.lambd_widget = widgets.FloatLogSlider(value=6e4, base=10, min=4, max=16, step=0.1, description='lambd:')
         self.porder_widget = widgets.IntText(value=10, description='porder:')
         self.itermax_widget = widgets.IntText(value=50, description='itermax:')
         self.button = widgets.Button(description='Run Function')
@@ -929,47 +930,47 @@ class PhotometryAnalysis:
         time_diff = np.diff(sig_df.Time)
         fs = 1 / np.mean(time_diff)  # Calculate sampling rate from the time intervals
 
-        self.zdFF = get_zdFF(ref_df.Data, sig_df.Data, remove=remove, smooth_win=window_len, fs=fs,
+        self.dFF = get_dFF(ref_df.Data, sig_df.Data, remove=remove, smooth_win=window_len, fs=fs,
                                 lambd=self.lambd_widget.value, porder=self.porder_widget.value,
                                 itermax=self.itermax_widget.value , norm=False)
-        self.zdFF_Z = get_zdFF(ref_df.Data, sig_df.Data, remove=remove, smooth_win=window_len, fs=fs,
+        self.dFF_Z = get_dFF(ref_df.Data, sig_df.Data, remove=remove, smooth_win=window_len, fs=fs,
                                 lambd=self.lambd_widget.value, porder=self.porder_widget.value,
                                 itermax=self.itermax_widget.value , norm=True)
-        self.plot_and_save(ref_df[remove:], sig_df[remove:], self.zdFF)
+        self.plot_and_save(ref_df[remove:], sig_df[remove:], self.dFF)
 
     def min_max_normalize(self, df):
         return 2 * ((df - df.min()) / (df.max() - df.min())) - 1
 
-    def plot_and_save(self, isos_df, grabda_df, zdFF):
+    def plot_and_save(self, isos_df, grabda_df, dFF):
         with self.plot_output:
             clear_output(wait=True)
             
             #plot fits over denoised data
-            fig, ax1 = plt.subplots(figsize=(20, 8))
+            fig, ax1 = plt.subplots(figsize=(12, 8))
 
             # Plot the first set of signals on ax1
-            plot1 = ax1.plot(isos_df['Time'], isos_df['Data'], 'silver', alpha=0.3, label='Isos')
-            plot2 = ax1.plot(grabda_df['Time'], grabda_df['Data'], 'black', alpha=0.3, label='GrabDA')
-            plot3 = ax1.plot(isos_df['Time'], zdFF, 'limegreen', label='Corrected DA signal')
+            plot1 = ax1.plot(isos_df['Time'], isos_df['Data'], 'silver', alpha=0.3, label='Isos', linewidth=0.7)
+            plot2 = ax1.plot(grabda_df['Time'], grabda_df['Data'], 'black', alpha=0.3, label='GrabDA', linewidth=0.7)
+            plot3 = ax1.plot(isos_df['Time'], dFF, 'limegreen', label='Corrected DA signal', linewidth=0.7)
             
             # Set labels and title for ax1
             ax1.set_xlabel('Time')
             ax1.set_ylabel('Signals ', color='black')
-            ax1.set_title('Signals ')
+            ax1.set_title('dF/F ')
 
             # Create a second y-axis that shares the same x-axis
             ax2 = ax1.twinx()
 
             # Plot the raw data and corrected DA signal with z-score on ax2
-            plot4 = ax2.plot(isos_df['Time'], self.zdFF_Z, 'red', label='Corrected DA signal with Z-Score')
+            plot4 = ax2.plot(isos_df['Time'], self.dFF_Z, 'red', label='Z_scored Corrected DA signal', linewidth=0.7)
 
             # Set the y-axis label for ax2
-            ax2.set_ylabel('Raw Signals and Corrected DA signal with Z-Score', color='red')
+            ax2.set_ylabel('Z-dF/F corrected signal', color='red')
             reward_cue_times =self.event_df['Time'][self.event_df['Type']=='Init']
 
             # reward_ticks = []
             for reward_time in reward_cue_times:
-                reward_ticks = ax2.plot([reward_time, reward_time], [self.zdFF_Z.min(), self.zdFF_Z.max()], color='k', linestyle='--', linewidth=0.5, label='Init Event')
+                reward_ticks = ax2.plot([reward_time, reward_time], [self.dFF_Z.min(), self.dFF_Z.max()], color='k', linestyle='--', linewidth=0.5, label='Init Event')
                 
             # Combine the legends of both axes
             lines = plot1 + plot2 + plot3 + plot4 + reward_ticks
@@ -979,7 +980,7 @@ class PhotometryAnalysis:
             plt.tight_layout()
             plt.show()
 
-            self.signal_df = pd.DataFrame({'Time': isos_df.Time, 'Data': zdFF})
+            self.signal_df = pd.DataFrame({'Time': isos_df.Time, 'Data': self.dFF_Z})       # Replace self.dFF_Z with dFF for Z_scored dFF
             self.save_selected_data()
 
     def display_widgets(self):
